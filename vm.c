@@ -73,8 +73,14 @@ static interpret_res_t run() {
 }
 
 interpret_res_t interpret(const char *source) {
-    compile(source);
+    //compile(source);
     return INTERPRET_OK;
+}
+
+void process_chunk_vm(chunk_t *chunk) {
+    vm.chunk = chunk;
+    vm.ip = vm.chunk->code;
+    run();
 }
 
 void push(value_t value) {

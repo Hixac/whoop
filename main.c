@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "vm.h"
 
@@ -55,8 +56,135 @@ static void run_file(const char* path) {
     if (result == INTERPRET_RUNTIME_ERROR) exit(70);
 }
 
+void unit_vm_add() {
+   chunk_t chunk;
+   init_chunk(&chunk);
+
+   int constant = add_constant(&chunk, 1.2);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   constant = add_constant(&chunk, 3.4);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   write_chunk(&chunk, OP_ADD, 1);
+   write_chunk(&chunk, OP_RETURN, 1);
+   process_chunk_vm(&chunk);
+   assert(pop() == 4.6 && "ADD TEST FAILED");
+   printf("[TEST]: INSTRUCTION ADD TEST SUCCESS\n");
+
+   free_chunk(&chunk);
+}
+
+void unit_vm_sub() {
+   chunk_t chunk;
+   init_chunk(&chunk);
+
+   int constant = add_constant(&chunk, 1.2);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   constant = add_constant(&chunk, 3.4);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   write_chunk(&chunk, OP_SUBTRACT, 1);
+   write_chunk(&chunk, OP_RETURN, 1);
+   process_chunk_vm(&chunk);
+   assert(pop() == -2.2 && "SUB TEST FAILED");
+   printf("[TEST]: INSTRUCTION SUB TEST SUCCESS\n");
+
+   free_chunk(&chunk);
+}
+
+void unit_vm_mul() {
+   chunk_t chunk;
+   init_chunk(&chunk);
+
+   int constant = add_constant(&chunk, 8);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   constant = add_constant(&chunk, 9);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   write_chunk(&chunk, OP_MULTIPLY, 1);
+   write_chunk(&chunk, OP_RETURN, 1);
+   process_chunk_vm(&chunk);
+   assert(pop() == 72 && "MULTIPLY TEST FAILED");
+   printf("[TEST]: INSTRUCTION MUL TEST SUCCESS\n");
+
+   free_chunk(&chunk);
+}
+
+void unit_vm_div() {
+   chunk_t chunk;
+   init_chunk(&chunk);
+
+   int constant = add_constant(&chunk, 8);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   constant = add_constant(&chunk, 4);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+   
+   write_chunk(&chunk, OP_DIVIDE, 1);
+   write_chunk(&chunk, OP_RETURN, 1);
+   process_chunk_vm(&chunk);
+   assert(pop() == 2 && "DIV TEST FAILED");
+   printf("[TEST]: INSTRUCTION DIV TEST SUCCESS\n");
+
+   free_chunk(&chunk);
+}
+
+void unit_vm_neg() {
+   chunk_t chunk;
+   init_chunk(&chunk);
+
+   int constant = add_constant(&chunk, 8);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+
+   write_chunk(&chunk, OP_NEGATE, 1);
+   write_chunk(&chunk, OP_RETURN, 1);
+   process_chunk_vm(&chunk);
+   assert(pop() == -8 && "NEGATE TEST FAILED");
+   printf("[TEST]: INSTRUCTION NEG TEST SUCCESS\n");
+
+   free_chunk(&chunk);
+}
+
+void unit_vm_constant() {
+   chunk_t chunk;
+   init_chunk(&chunk);
+
+   int constant = add_constant(&chunk, 8);
+   write_chunk(&chunk, OP_CONSTANT, 1);
+   write_chunk(&chunk, constant, 1);
+   
+   write_chunk(&chunk, OP_RETURN, 1);
+   process_chunk_vm(&chunk);
+   assert(pop() == 8 && "CONSTANT TEST FAILED");
+   printf("[TEST]: INSTRUCTION CONSTANT TEST SUCCESS\n");
+
+   free_chunk(&chunk);
+}
+
+void unit_test_vm_run() {
+    unit_vm_add();
+    unit_vm_sub();
+    unit_vm_mul();
+    unit_vm_div();
+    unit_vm_neg();
+    unit_vm_constant();
+}
+
 int main(int argc, const char **argv) {
     init_vm();
+    unit_test_vm_run();
     
     if (argc == 1) {
         repl();
