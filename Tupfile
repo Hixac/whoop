@@ -1,2 +1,5 @@
-: foreach *.c |> gcc -Wall -c %f -o %o |> %B.o
-: *.o |> gcc %f -o %o |> main
+SRC  = src
+OBJS = objs
+
+: foreach $(SRC)/*.c |> gcc -Wall -c %f -o %o |> $(OBJS)/%B.o
+: $(OBJS)/*.o |> gcc %f -o %o |> main

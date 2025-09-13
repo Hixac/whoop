@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "compile.h"
 #include "debug.h"
 #include "vm.h"
 
@@ -73,8 +74,21 @@ static interpret_res_t run() {
 }
 
 interpret_res_t interpret(const char *source) {
-    //compile(source);
-    return INTERPRET_OK;
+    chunk_t chunk;
+    init_chunk(&chunk);
+
+    if (!compile(source, &chunk)) {
+        free_chunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code;
+
+    interpret_res_t result = run();
+
+    free_chunk(&chunk);
+    return result;
 }
 
 void process_chunk_vm(chunk_t *chunk) {
