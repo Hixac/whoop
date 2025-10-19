@@ -90,6 +90,16 @@ static void consume(tok_type_e type, const char *message) {
     error_at_current(message);
 }
 
+static bool check(tok_type_e type) {
+    return parser.current.type == type;
+}
+
+static bool match(tok_type_e type) {
+    if (!check(type)) return false;
+    advance();
+    return true;
+}
+
 static void emit_byte(uint8_t byte) {
     write_chunk(current_chunk(), byte, parser.previous.line);
 }
@@ -127,6 +137,8 @@ static void end_compiler() {
 }
 
 static void expression();
+static void statement();
+static void declaration();
 static parse_rule_t *get_rule(tok_type_e type);
 static void parse_precedence(prec_t precedence);
 
@@ -137,7 +149,11 @@ static void grouping() {
 
 static void number() {
     double value = strtod(parser.previous.start, NULL);
-    emit_constant(value);
+    emit_constant(NUMBER_VAL(value));
+}
+
+static void string() {
+    emit_constant(OBJ_VAL(copy_string(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 static void unary() {
@@ -146,11 +162,12 @@ static void unary() {
     // Compile the operand.
    parse_precedence(PREC_UNARY);
 
-    // Emit the operator instruction.
-    switch (operator_type) {
-        case TOKEN_MINUS: emit_byte(OP_NEGATE); break;
-        default: return; // Unreachable.
-    }
+   // Emit the operator instruction.
+   switch (operator_type) {
+       case TOKEN_BANG:  emit_byte(OP_NOT);    break;
+       case TOKEN_MINUS: emit_byte(OP_NEGATE); break;
+       default: return; // Unreachable.
+   }
 }
 
 static void binary() {
@@ -159,10 +176,25 @@ static void binary() {
     parse_precedence((prec_t)(rule->precedence + 1));
 
     switch (operator_type) {
+        case TOKEN_BANG_EQUAL:    emit_bytes(OP_EQUAL, OP_NOT); break;
+        case TOKEN_EQUAL_EQUAL:   emit_byte(OP_EQUAL); break;
+        case TOKEN_GREATER:       emit_byte(OP_GREATER); break;
+        case TOKEN_GREATER_EQUAL: emit_bytes(OP_LESS, OP_NOT); break;
+        case TOKEN_LESS:          emit_byte(OP_LESS); break;
+        case TOKEN_LESS_EQUAL:    emit_bytes(OP_GREATER, OP_NOT); break;
         case TOKEN_PLUS:          emit_byte(OP_ADD); break;
         case TOKEN_MINUS:         emit_byte(OP_SUBTRACT); break;
         case TOKEN_STAR:          emit_byte(OP_MULTIPLY); break;
         case TOKEN_SLASH:         emit_byte(OP_DIVIDE); break;
+        default: return; // Unreachable.
+    }
+}
+
+static void literal() {
+    switch (parser.previous.type) {
+        case TOKEN_FALSE: emit_byte(OP_FALSE); break;
+        case TOKEN_NIL:   emit_byte(OP_NIL);   break;
+        case TOKEN_TRUE:  emit_byte(OP_TRUE);  break;
         default: return; // Unreachable.
     }
 }
@@ -179,31 +211,30 @@ parse_rule_t rules[] = {
     [TOKEN_SEMICOLON]     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_SLASH]         = {NULL,     binary, PREC_FACTOR},
     [TOKEN_STAR]          = {NULL,     binary, PREC_FACTOR},
-    [TOKEN_BANG]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_BANG_EQUAL]    = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_BANG]          = {unary,    NULL,   PREC_NONE},
+    [TOKEN_BANG_EQUAL]    = {NULL,     binary, PREC_EQUALITY},
     [TOKEN_EQUAL]         = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_EQUAL_EQUAL]   = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_GREATER]       = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_GREATER_EQUAL] = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LESS]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LESS_EQUAL]    = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_EQUAL_EQUAL]   = {NULL,     binary, PREC_EQUALITY},
+    [TOKEN_GREATER]       = {NULL,     binary, PREC_COMPARISON},
+    [TOKEN_GREATER_EQUAL] = {NULL,     binary, PREC_COMPARISON},
+    [TOKEN_LESS]          = {NULL,     binary, PREC_COMPARISON},
+    [TOKEN_LESS_EQUAL]    = {NULL,     binary, PREC_COMPARISON},
     [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
     [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
     [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
     [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_FALSE]         = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
     [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FUN]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_NIL]           = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_NIL]           = {literal,  NULL,   PREC_NONE},
     [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
     [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_TRUE]          = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
     [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
     [TOKEN_ERROR]         = {NULL,     NULL,   PREC_NONE},
@@ -235,6 +266,56 @@ static void expression() {
     parse_precedence(PREC_ASSIGNMENT);
 }
 
+static void expression_statement() {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expected ';' after value.");
+    emit_byte(OP_POP);
+}
+
+static void print_statement() {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expected ';' after value.");
+    emit_byte(OP_PRINT);
+}
+
+static void synchronize() {
+    parser.panic_mode = false;
+
+    while (parser.current.type != TOKEN_EOF) {
+        if (parser.previous.type == TOKEN_SEMICOLON) return;
+        switch (parser.current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_RETURN:
+                return;
+
+            default:
+                ; // Do nothing.
+        }
+
+        advance();
+    }
+}
+
+static void declaration() {
+    statement();
+
+    if (parser.panic_mode) synchronize();
+}
+
+static void statement() {
+    if (match(TOKEN_PRINT)) {
+        print_statement();
+    } else {
+        expression_statement();
+    }
+}
+
 bool compile(const char *source, chunk_t *chunk) {
     init_scanner(source);
     compiling_chunk = chunk;
@@ -243,8 +324,10 @@ bool compile(const char *source, chunk_t *chunk) {
     parser.panic_mode = false;
 
     advance();
-    expression();
-    consume(TOKEN_EOF, "Expect end of expression.");
+
+    while (!match(TOKEN_EOF)) {
+        declaration();
+    }
 
     end_compiler();
     return !parser.had_error;

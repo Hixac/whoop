@@ -1,5 +1,8 @@
 SRC  = src
 OBJS = objs
 
-: foreach $(SRC)/*.c |> gcc -Wall -c %f -o %o |> $(OBJS)/%B.o
-: $(OBJS)/*.o |> gcc %f -o %o |> main
+CFLAGS = -g -Wall
+LDFLAGS = 
+
+: foreach $(SRC)/*.c |> gcc $(CFLAGS) -c %f -o %o |> $(OBJS)/%B.o
+: $(OBJS)/*.o |> gcc $(LDFLAGS) %f -o %o |> main
