@@ -48,7 +48,7 @@ static char* read_file(const char* path) {
 
 static void run_file(const char* path) {
     char* source = read_file(path);
-    interpret_res_t result = interpret(source);
+    interpret_res_e result = interpret(source);
     free(source); 
 
     if (result == INTERPRET_COMPILE_ERROR) exit(65);

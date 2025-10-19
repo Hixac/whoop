@@ -51,6 +51,6 @@ int get_line(lines_t *lines, int index) {
         if (index + 1 <= repeats)
             return lines->lines[i];
     }
-    
+
     return -1;
 }
