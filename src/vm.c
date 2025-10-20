@@ -32,10 +32,12 @@ void init_vm() {
     reset_stack();
     vm.objects = NULL;
     init_table(&vm.strings);
+    init_table(&vm.globals);
 }
 
 void free_vm() {
     free_table(&vm.strings);
+    free_table(&vm.globals);
     free_objects();
 }
 
@@ -68,6 +70,7 @@ static interpret_res_e run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define READ_CONSTANT_LONG() (vm.chunk->constants.values[READ_BYTE() + (READ_BYTE() << 8) + (READ_BYTE() << 16)])
+#define READ_STRING() (AS_STRING(READ_CONSTANT()))
 #define BINARY_OP(value_type, op)                           \
     do {                                                    \
         if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) {   \
@@ -145,6 +148,31 @@ static interpret_res_e run() {
             break;
         }
         case OP_POP: pop(); break;
+        case OP_DEFINE_GLOBAL: {
+            obj_string_t *name = READ_STRING();
+            table_set(&vm.globals, name, peek(0));
+            pop();
+            break;
+        }
+        case OP_GET_GLOBAL: {
+            obj_string_t *name = READ_STRING();
+            value_t value;
+            if (!table_get(&vm.globals, name, &value)) {
+                runtime_error("Undefined variable '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            push(value);
+            break;
+        }
+        case OP_SET_GLOBAL: {
+            obj_string_t *name = READ_STRING();
+            if (table_set(&vm.globals, name, peek(0))) {
+                table_delete(&vm.globals, name);
+                runtime_error("Undefined variable '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            break;
+        }
         case OP_RETURN:
             // exit interpreter
             return INTERPRET_OK;
@@ -154,6 +182,7 @@ static interpret_res_e run() {
 #undef READ_CONSTANT_LONG
 #undef READ_CONSTANT
 #undef READ_BYTE
+#undef READ_STRING
 #undef BINARY_OP
     
 #pragma GCC diagnostic pop
